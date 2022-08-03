@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -30,10 +29,12 @@ import (
 	"github.com/0xPolygon/polygon-edge/state/runtime/precompiled"
 	"github.com/0xPolygon/polygon-edge/txpool"
 	"github.com/0xPolygon/polygon-edge/types"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // Server is the central manager of the blockchain client
@@ -80,18 +81,24 @@ var dirPaths = []string{
 	"trie",
 }
 
-// newFileLogger returns logger instance that writes all logs to a specified file.
-// If log file can't be created, it returns an error
-func newFileLogger(config *Config) (hclog.Logger, error) {
-	logFileWriter, err := os.Create(config.LogFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("could not create log file, %w", err)
+// setLogOutputWithLogRotate returns a log file writer with user defined logger configuration.
+func setLogOutputWithLogRotate(config *Config) *lumberjack.Logger {
+	return &lumberjack.Logger{
+		Filename:   config.Log.FilePath,
+		MaxSize:    config.Log.LogSizeLimit,
+		MaxBackups: config.Log.MaxFileRetention,
+		MaxAge:     config.Log.MaxDaysRetention,
+		LocalTime:  true,
+		Compress:   config.Log.Compress,
 	}
+}
 
+// newFileLogger returns logger instance that writes all logs to a specified file.
+func newFileLogger(config *Config) (hclog.Logger, error) {
 	return hclog.New(&hclog.LoggerOptions{
 		Name:   "polygon",
-		Level:  config.LogLevel,
-		Output: logFileWriter,
+		Level:  config.Log.LogLevel,
+		Output: setLogOutputWithLogRotate(config),
 	}), nil
 }
 
@@ -99,7 +106,7 @@ func newFileLogger(config *Config) (hclog.Logger, error) {
 func newCLILogger(config *Config) hclog.Logger {
 	return hclog.New(&hclog.LoggerOptions{
 		Name:  "polygon",
-		Level: config.LogLevel,
+		Level: config.Log.LogLevel,
 	})
 }
 
@@ -107,7 +114,7 @@ func newCLILogger(config *Config) hclog.Logger {
 // If log file is not set it outputs to standard output ( console ).
 // If log file is specified, and it can't be created the server command will error out
 func newLoggerFromConfig(config *Config) (hclog.Logger, error) {
-	if config.LogFilePath != "" {
+	if config.Log.FilePath != "" {
 		fileLoggerInstance, err := newFileLogger(config)
 		if err != nil {
 			return nil, err

@@ -37,6 +37,10 @@ const (
 	devFlag                      = "dev"
 	corsOriginFlag               = "access-control-allow-origins"
 	logFileLocationFlag          = "log-to"
+	logMaxSize                   = "log-max-size"
+	logMaxDays                   = "log-max-days"
+	logMaxFiles                  = "log-max-files"
+	logCompress                  = "log-compress"
 )
 
 // Flags that are deprecated, but need to be preserved for
@@ -117,7 +121,7 @@ func (p *serverParams) isDNSAddressSet() bool {
 }
 
 func (p *serverParams) isLogFileLocationSet() bool {
-	return p.rawConfig.LogFilePath != ""
+	return p.rawConfig.LogConfig.LogFilePath != ""
 }
 
 func (p *serverParams) isDevConsensus() bool {
@@ -172,7 +176,13 @@ func (p *serverParams) generateConfig() *server.Config {
 		SecretsManager: p.secretsConfig,
 		RestoreFile:    p.getRestoreFilePath(),
 		BlockTime:      p.rawConfig.BlockTime,
-		LogLevel:       hclog.LevelFromString(p.rawConfig.LogLevel),
-		LogFilePath:    p.logFileLocation,
+		Log: server.Logger{
+			LogLevel:         hclog.LevelFromString(p.rawConfig.LogConfig.LogLevel),
+			MaxDaysRetention: p.rawConfig.LogConfig.MaxDaysRetention,
+			FilePath:         p.logFileLocation,
+			MaxFileRetention: p.rawConfig.LogConfig.MaxFileRetention,
+			LogSizeLimit:     p.rawConfig.LogConfig.LogSizeLimit,
+			Compress:         p.rawConfig.LogConfig.Compress,
+		},
 	}
 }

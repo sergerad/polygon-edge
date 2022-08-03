@@ -35,9 +35,17 @@ type Config struct {
 
 	SecretsManager *secrets.SecretsManagerConfig
 
-	LogLevel hclog.Level
+	Log Logger
+}
 
-	LogFilePath string
+// Logger holds the logger configuration
+type Logger struct {
+	LogLevel         hclog.Level
+	FilePath         string
+	MaxFileRetention int
+	LogSizeLimit     int
+	MaxDaysRetention int
+	Compress         bool
 }
 
 // Telemetry holds the config details for metric services

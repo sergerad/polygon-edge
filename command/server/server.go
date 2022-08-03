@@ -41,9 +41,9 @@ func setFlags(cmd *cobra.Command) {
 	defaultConfig := config.DefaultConfig()
 
 	cmd.Flags().StringVar(
-		&params.rawConfig.LogLevel,
+		&params.rawConfig.LogConfig.LogLevel,
 		command.LogLevelFlag,
-		defaultConfig.LogLevel,
+		defaultConfig.LogConfig.LogLevel,
 		"the log level for console output",
 	)
 
@@ -200,19 +200,47 @@ func setFlags(cmd *cobra.Command) {
 		"the max length to be considered when handling json-rpc batch requests",
 	)
 
-	//nolint:lll
 	cmd.Flags().Uint64Var(
 		&params.jsonRPCBlockRangeLimit,
 		jsonRPCBlockRangeLimitFlag,
 		defaultConfig.JSONRPCBlockRangeLimit,
-		"the max block range to be considered when executing json-rpc requests that consider fromBlock/toBlock values (e.g. eth_getLogs)",
+		"the max block range to be considered when executing json-rpc requests that "+
+			"consider fromBlock/toBlock values (e.g. eth_getLogs)",
 	)
 
 	cmd.Flags().StringVar(
-		&params.rawConfig.LogFilePath,
+		&params.rawConfig.LogConfig.LogFilePath,
 		logFileLocationFlag,
-		defaultConfig.LogFilePath,
+		defaultConfig.LogConfig.LogFilePath,
 		"write all logs to the file at specified location instead of writing them to console",
+	)
+
+	cmd.Flags().IntVar(
+		&params.rawConfig.LogConfig.MaxFileRetention,
+		logMaxFiles,
+		defaultConfig.LogConfig.MaxFileRetention,
+		"maximum number of rotated log files to keep",
+	)
+
+	cmd.Flags().IntVar(
+		&params.rawConfig.LogConfig.LogSizeLimit,
+		logMaxSize,
+		defaultConfig.LogConfig.LogSizeLimit,
+		"maximum size of the log file in MB, if exceeded the log will be rotated",
+	)
+
+	cmd.Flags().IntVar(
+		&params.rawConfig.LogConfig.MaxDaysRetention,
+		logMaxDays,
+		defaultConfig.LogConfig.MaxDaysRetention,
+		"maximum number of days to keep rotated log files",
+	)
+
+	cmd.Flags().BoolVar(
+		&params.rawConfig.LogConfig.Compress,
+		logCompress,
+		defaultConfig.LogConfig.Compress,
+		"should rotated log file be compressed (gzip)",
 	)
 
 	setLegacyFlags(cmd)

@@ -82,7 +82,7 @@ func (p *serverParams) initDataDirLocation() error {
 
 func (p *serverParams) initLogFileLocation() {
 	if p.isLogFileLocationSet() {
-		p.logFileLocation = p.rawConfig.LogFilePath
+		p.logFileLocation = p.rawConfig.LogConfig.LogFilePath
 	}
 }
 

@@ -52,7 +52,7 @@ func NewProgressionWrapper(syncType ChainSyncType) *ProgressionWrapper {
 	}
 }
 
-// startProgression initializes the progression tracking
+// StartProgression initializes the progression tracking
 func (pw *ProgressionWrapper) StartProgression(
 	startingBlock uint64,
 	subscription blockchain.Subscription,
@@ -68,7 +68,7 @@ func (pw *ProgressionWrapper) StartProgression(
 	go pw.RunUpdateLoop(subscription)
 }
 
-// runUpdateLoop starts the blockchain event monitoring loop and
+// RunUpdateLoop starts the blockchain event monitoring loop and
 // updates the currently written block in the batch sync
 func (pw *ProgressionWrapper) RunUpdateLoop(subscription blockchain.Subscription) {
 	eventCh := subscription.GetEventCh()

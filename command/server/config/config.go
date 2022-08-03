@@ -24,13 +24,22 @@ type Config struct {
 	Network                  *Network   `json:"network" yaml:"network"`
 	ShouldSeal               bool       `json:"seal" yaml:"seal"`
 	TxPool                   *TxPool    `json:"tx_pool" yaml:"tx_pool"`
-	LogLevel                 string     `json:"log_level" yaml:"log_level"`
 	RestoreFile              string     `json:"restore_file" yaml:"restore_file"`
 	BlockTime                uint64     `json:"block_time_s" yaml:"block_time_s"`
 	Headers                  *Headers   `json:"headers" yaml:"headers"`
-	LogFilePath              string     `json:"log_to" yaml:"log_to"`
+	LogConfig                Logging    `json:"logging" yaml:"logging"`
 	JSONRPCBatchRequestLimit uint64     `json:"json_rpc_batch_request_limit" yaml:"json_rpc_batch_request_limit"`
 	JSONRPCBlockRangeLimit   uint64     `json:"json_rpc_block_range_limit" yaml:"json_rpc_block_range_limit"`
+}
+
+// Logging holds the config information like log level, log file name and log rotation parameters
+type Logging struct {
+	LogLevel         string `json:"log_level" yaml:"log_level"`
+	LogFilePath      string `json:"file_path" yaml:"file_path"`
+	MaxFileRetention int    `json:"max_file_retention" yaml:"max_file_retention"`
+	MaxDaysRetention int    `json:"max_days_retention" yaml:"max_days_retention"`
+	LogSizeLimit     int    `json:"log_size_limit" yaml:"max_log_size_limit"`
+	Compress         bool   `json:"compress" yaml:"compress"`
 }
 
 // Telemetry holds the config details for metric services.
@@ -61,17 +70,18 @@ type Headers struct {
 }
 
 const (
-	// minimum block generation time in seconds
+	// DefaultBlockTime minimum block generation time in seconds
 	DefaultBlockTime uint64 = 2
 
-	// Multiplier to get IBFT timeout from block time
+	// BlockTimeMultiplierForTimeout Multiplier to get IBFT timeout from block time
 	// timeout is calculated when IBFT timeout is not specified
-	BlockTimeMultiplierForTimeout uint64 = 5
+	//BlockTimeMultiplierForTimeout uint64 = 5 // commenting out as it's not used - should it be deleted ???
 
-	// maximum length allowed for json_rpc batch requests
+	// DefaultJSONRPCBatchRequestLimit maximum length allowed for json_rpc batch requests
 	DefaultJSONRPCBatchRequestLimit uint64 = 20
 
-	// maximum block range allowed for json_rpc requests with fromBlock/toBlock values (e.g. eth_getLogs)
+	// DefaultJSONRPCBlockRangeLimit maximum block range allowed for json_rpc requests with
+	// fromBlock/toBlock values (e.g. eth_getLogs)
 	DefaultJSONRPCBlockRangeLimit uint64 = 1000
 )
 
@@ -99,13 +109,19 @@ func DefaultConfig() *Config {
 			PriceLimit: 0,
 			MaxSlots:   4096,
 		},
-		LogLevel:    "INFO",
 		RestoreFile: "",
 		BlockTime:   DefaultBlockTime,
 		Headers: &Headers{
 			AccessControlAllowOrigins: []string{"*"},
 		},
-		LogFilePath:              "",
+		LogConfig: Logging{
+			LogLevel:         "INFO",
+			LogFilePath:      "",
+			MaxDaysRetention: 30,
+			MaxFileRetention: 0,
+			LogSizeLimit:     100,
+			Compress:         true,
+		},
 		JSONRPCBatchRequestLimit: DefaultJSONRPCBatchRequestLimit,
 		JSONRPCBlockRangeLimit:   DefaultJSONRPCBlockRangeLimit,
 	}
