@@ -474,7 +474,7 @@ func validatorSetToABISlice(validators []*polybft.Validator) ([]*contractsapi.Va
 		accSet[i] = &polybft.ValidatorMetadata{
 			Address:     validatorInfo.Address,
 			BlsKey:      blsKey,
-			VotingPower: new(big.Int).Set(validatorInfo.Balance),
+			VotingPower: new(big.Int).Set(validatorInfo.Stake),
 		}
 	}
 
