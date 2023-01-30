@@ -139,16 +139,19 @@ func (t *Txn) hash(node Node, h *hasher, a *fastrlp.Arena, d int) *fastrlp.Value
 	var aa *fastrlp.Arena
 
 	var idx int
-
+	fmt.Println(node)
 	if h, ok := node.Hash(); ok {
 		return a.NewCopyBytes(h)
 	}
 
 	switch n := node.(type) {
 	case *ValueNode:
+		fmt.Println("value")
+
 		return a.NewCopyBytes(n.buf)
 
 	case *ShortNode:
+		fmt.Println("short")
 		child := t.hash(n.child, h, a, d+1)
 
 		val = a.NewArray()
@@ -156,6 +159,9 @@ func (t *Txn) hash(node Node, h *hasher, a *fastrlp.Arena, d int) *fastrlp.Value
 		val.Set(child)
 
 	case *FullNode:
+		fmt.Println("full")
+		fmt.Println(n.children)
+
 		val = a.NewArray()
 
 		aa, idx = h.AcquireArena()
