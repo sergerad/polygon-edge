@@ -1,12 +1,13 @@
 package itrie
 
 import (
-	"github.com/0xPolygon/polygon-edge/types"
-	"github.com/syndtr/goleveldb/leveldb"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/0xPolygon/polygon-edge/types"
+	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/0xPolygon/polygon-edge/state"
 )
@@ -24,9 +25,9 @@ func buildPreState(pre state.PreStates) state.Snapshot {
 }
 
 func TestName(t *testing.T) {
-	path := "/tmp/polygon-edge-e2e-1251779841"
-	dbOLD := "trie2"
-	dbNEW := "trie3"
+	path := "./test-chain-1/trie"
+	dbOLD := "trie"
+	dbNEW := "trieNew"
 	stateRoot := types.StringToHash("0xe84415bc6f5dd612e5a144a88f6e0bad49009c219163dcb80c09ddb2a7545a93")
 
 	db, err := leveldb.OpenFile(filepath.Join(path, dbOLD), nil)
@@ -58,10 +59,12 @@ func TestName(t *testing.T) {
 	}
 
 	newTrie := NewTrie()
-	newTrie.state = NewState(stateStorageNew)
-	newTrie.storage = stateStorageNew
+	newState := NewState(stateStorageNew)
+	// newTrie.storage = stateStorageNew
 	newTrie.root = rootNode
 
+	snap := newState.NewSnapshot()
+	snap.Commit(nil)
 	_, netStateRoot := newTrie.Commit(nil)
 
 	//000001.log      CURRENT         LOCK            LOG             MANIFEST-000000
