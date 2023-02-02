@@ -28,7 +28,7 @@ func TestName(t *testing.T) {
 	path := "../../test-chain-1"
 	dbOLD := "trie"
 	dbNEW := "trieNew"
-	stateRoot := types.StringToHash("0xa9476c0458ab648188bbda07b1145e9f0c7729ddd0c875292894eec69a167ca0")
+	stateRoot := types.StringToHash("0xe5d01e1f0843dbeb353a13b9dcaee932b93b56ceaa38247bee0974b8b2b8e801")
 
 	db, err := leveldb.OpenFile(filepath.Join(path, dbOLD), nil)
 	if err != nil {
@@ -48,7 +48,7 @@ func TestName(t *testing.T) {
 	stateStorageNew := &KVStorage{db2}
 
 	state := NewState(stateStorage)
-	trie, err := state.NewSnapshotAt(stateRoot)
+	snap, err := state.NewSnapshotAt(stateRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,12 +58,23 @@ func TestName(t *testing.T) {
 		t.Fatal()
 	}
 
-	newTrie := NewTrie()
-	newTrie.root = rootNode
 	newState := NewState(stateStorageNew)
+	newTrie := newState.newTrie()
+	newTrie.root = rootNode
+	newState.AddState(stateRoot, newTrie)
 
-	snap := newState.NewSnapshot()
-	_, netStateRoot := snap.Commit(nil)
+	snap2, err := newState.NewSnapshotAt(stateRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, netStateRoot := snap2.Commit(nil)
+
+	// This is not working
+	acc, err := snap2.GetAccount(types.StringToAddress("0x6FdA56C57B0Acadb96Ed5624aC500C0429d59429"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(acc.String())
 
 	//000001.log      CURRENT         LOCK            LOG             MANIFEST-000000
 	files := []string{"000001.log", "CURRENT", "LOCK", "LOG", "MANIFEST-000000"}
@@ -75,7 +86,7 @@ func TestName(t *testing.T) {
 		t.Log(file, types.BytesToHash(hashit(fData)).String())
 	}
 
-	_, root := trie.Commit(nil)
+	_, root := snap.Commit(nil)
 	t.Log("state roots")
 	t.Log(types.BytesToHash(root).String())
 	t.Log(types.BytesToHash(netStateRoot).String())
