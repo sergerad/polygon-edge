@@ -25,10 +25,10 @@ func buildPreState(pre state.PreStates) state.Snapshot {
 }
 
 func TestName(t *testing.T) {
-	path := "./test-chain-1/trie"
+	path := "../../test-chain-1"
 	dbOLD := "trie"
 	dbNEW := "trieNew"
-	stateRoot := types.StringToHash("0xe84415bc6f5dd612e5a144a88f6e0bad49009c219163dcb80c09ddb2a7545a93")
+	stateRoot := types.StringToHash("0xa9476c0458ab648188bbda07b1145e9f0c7729ddd0c875292894eec69a167ca0")
 
 	db, err := leveldb.OpenFile(filepath.Join(path, dbOLD), nil)
 	if err != nil {
@@ -48,7 +48,7 @@ func TestName(t *testing.T) {
 	stateStorageNew := &KVStorage{db2}
 
 	state := NewState(stateStorage)
-	trie, err := state.newTrieAt(stateRoot)
+	trie, err := state.NewSnapshotAt(stateRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,13 +59,11 @@ func TestName(t *testing.T) {
 	}
 
 	newTrie := NewTrie()
-	newState := NewState(stateStorageNew)
-	// newTrie.storage = stateStorageNew
 	newTrie.root = rootNode
+	newState := NewState(stateStorageNew)
 
 	snap := newState.NewSnapshot()
-	snap.Commit(nil)
-	_, netStateRoot := newTrie.Commit(nil)
+	_, netStateRoot := snap.Commit(nil)
 
 	//000001.log      CURRENT         LOCK            LOG             MANIFEST-000000
 	files := []string{"000001.log", "CURRENT", "LOCK", "LOG", "MANIFEST-000000"}
@@ -81,8 +79,8 @@ func TestName(t *testing.T) {
 	t.Log("state roots")
 	t.Log(types.BytesToHash(root).String())
 	t.Log(types.BytesToHash(netStateRoot).String())
-	sn := &Snapshot{state: state, trie: trie}
-	_ = sn
+	// sn := &Snapshot{state: state, trie: trie}
+	// _ = sn
 
 	t.Log("keys")
 	it := db.NewIterator(nil, nil)
