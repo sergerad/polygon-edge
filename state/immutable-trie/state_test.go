@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/0xPolygon/polygon-edge/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/0xPolygon/polygon-edge/state"
@@ -25,7 +26,7 @@ func buildPreState(pre state.PreStates) state.Snapshot {
 }
 
 func TestName(t *testing.T) {
-	path := "../../test-chain-1"
+	path := "./testdata"
 	dbOLD := "trie"
 	dbNEW := "trieNew"
 	stateRoot := types.StringToHash("0xc6a643ef265b08f17e555e221dd77b1a8822d96097fb987914db168b34c93cfb")
@@ -58,16 +59,17 @@ func TestName(t *testing.T) {
 		t.Fatal()
 	}
 
-	newState := NewState(stateStorageNew)
-	newTrie := newState.newTrie()
+	newTrie := NewTrie()
 	newTrie.root = rootNode
-	newState.AddState(stateRoot, newTrie)
+	newState := NewState(stateStorageNew)
 
-	snap2, err := newState.NewSnapshotAt(stateRoot)
+	snap2 := &Snapshot{state: newState, trie: newTrie} // newState.NewSnapshotAt(stateRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, netStateRoot := snap2.Commit(nil)
+	_, newStateRoot := snap2.Commit(nil)
+
+	assert.Equal(t, stateRoot, types.BytesToHash(newStateRoot))
 
 	// This is not working
 	acc, err := snap.GetAccount(types.StringToAddress("0xa0d070F081e6A6c135Fdd7778533d97E59627676"))
@@ -80,14 +82,14 @@ func TestName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(acc.String())
+	assert.NotNil(t, acc)
 
 	// This is not working
 	acc, err = snap2.GetAccount(types.StringToAddress("0x6FdA56C57B0Acadb96Ed5624aC500C0429d59429"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(acc.String())
+	assert.NotNil(t, acc)
 
 	//000001.log      CURRENT         LOCK            LOG             MANIFEST-000000
 	files := []string{"000001.log", "CURRENT", "LOCK", "LOG", "MANIFEST-000000"}
@@ -102,7 +104,7 @@ func TestName(t *testing.T) {
 	_, root := snap.Commit(nil)
 	t.Log("state roots")
 	t.Log(types.BytesToHash(root).String())
-	t.Log(types.BytesToHash(netStateRoot).String())
+	t.Log(types.BytesToHash(newStateRoot).String())
 	// sn := &Snapshot{state: state, trie: trie}
 	// _ = sn
 
