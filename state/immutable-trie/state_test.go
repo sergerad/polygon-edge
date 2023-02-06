@@ -28,7 +28,7 @@ func TestName(t *testing.T) {
 	path := "../../test-chain-1"
 	dbOLD := "trie"
 	dbNEW := "trieNew"
-	stateRoot := types.StringToHash("0xe5d01e1f0843dbeb353a13b9dcaee932b93b56ceaa38247bee0974b8b2b8e801")
+	stateRoot := types.StringToHash("0xc6a643ef265b08f17e555e221dd77b1a8822d96097fb987914db168b34c93cfb")
 
 	db, err := leveldb.OpenFile(filepath.Join(path, dbOLD), nil)
 	if err != nil {
@@ -70,7 +70,20 @@ func TestName(t *testing.T) {
 	_, netStateRoot := snap2.Commit(nil)
 
 	// This is not working
-	acc, err := snap2.GetAccount(types.StringToAddress("0x6FdA56C57B0Acadb96Ed5624aC500C0429d59429"))
+	acc, err := snap.GetAccount(types.StringToAddress("0xa0d070F081e6A6c135Fdd7778533d97E59627676"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(acc.String())
+
+	acc, err = snap2.GetAccount(types.StringToAddress("0xa0d070F081e6A6c135Fdd7778533d97E59627676"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(acc.String())
+
+	// This is not working
+	acc, err = snap2.GetAccount(types.StringToAddress("0x6FdA56C57B0Acadb96Ed5624aC500C0429d59429"))
 	if err != nil {
 		t.Fatal(err)
 	}
