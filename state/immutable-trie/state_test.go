@@ -1,12 +1,13 @@
 package itrie
 
 import (
-	"github.com/0xPolygon/polygon-edge/types"
-	"github.com/syndtr/goleveldb/leveldb"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/0xPolygon/polygon-edge/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/0xPolygon/polygon-edge/state"
 )
@@ -24,10 +25,10 @@ func buildPreState(pre state.PreStates) state.Snapshot {
 }
 
 func TestName(t *testing.T) {
-	path := "/tmp/polygon-edge-e2e-1251779841"
-	dbOLD := "trie2"
-	dbNEW := "trie3"
-	stateRoot := types.StringToHash("0xe84415bc6f5dd612e5a144a88f6e0bad49009c219163dcb80c09ddb2a7545a93")
+	path := "./testdata"
+	dbOLD := "trie"
+	dbNEW := "trieNew"
+	stateRoot := types.StringToHash("0xc6a643ef265b08f17e555e221dd77b1a8822d96097fb987914db168b34c93cfb")
 
 	db, err := leveldb.OpenFile(filepath.Join(path, dbOLD), nil)
 	if err != nil {
@@ -47,7 +48,7 @@ func TestName(t *testing.T) {
 	stateStorageNew := &KVStorage{db2}
 
 	state := NewState(stateStorage)
-	trie, err := state.newTrieAt(stateRoot)
+	snap, err := state.NewSnapshotAt(stateRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,32 +59,44 @@ func TestName(t *testing.T) {
 	}
 
 	newTrie := NewTrie()
-	newTrie.state = NewState(stateStorageNew)
-	newTrie.storage = stateStorageNew
 	newTrie.root = rootNode
+	newState := NewState(stateStorageNew)
+	snap2 := &Snapshot{state: newState, trie: newTrie}
+	_, newStateRoot := snap2.Commit(nil)
 
-	_, netStateRoot := newTrie.Commit(nil)
+	assert.Equal(t, stateRoot, types.BytesToHash(newStateRoot))
 
-	//000001.log      CURRENT         LOCK            LOG             MANIFEST-000000
-	files := []string{"000001.log", "CURRENT", "LOCK", "LOG", "MANIFEST-000000"}
-	for _, file := range files {
-		fData, err := ioutil.ReadFile(filepath.Join(path, dbNEW, file))
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Log(file, types.BytesToHash(hashit(fData)).String())
+	// This is not working
+	acc, err := snap.GetAccount(types.StringToAddress("0xa0d070F081e6A6c135Fdd7778533d97E59627676"))
+	if err != nil {
+		t.Fatal(err)
 	}
+	t.Log(acc.String())
 
-	_, root := trie.Commit(nil)
+	acc, err = snap2.GetAccount(types.StringToAddress("0xa0d070F081e6A6c135Fdd7778533d97E59627676"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotNil(t, acc)
+
+	// This is not working
+	acc, err = snap2.GetAccount(types.StringToAddress("0x6FdA56C57B0Acadb96Ed5624aC500C0429d59429"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotNil(t, acc)
+
+	_, root := snap.Commit(nil)
 	t.Log("state roots")
+	assert.Equal(t, newStateRoot, root)
 	t.Log(types.BytesToHash(root).String())
-	t.Log(types.BytesToHash(netStateRoot).String())
-	sn := &Snapshot{state: state, trie: trie}
-	_ = sn
+	t.Log(types.BytesToHash(newStateRoot).String())
+	// sn := &Snapshot{state: state, trie: trie}
+	// _ = sn
 
 	t.Log("keys")
 	it := db.NewIterator(nil, nil)
-	it2 := db.NewIterator(nil, nil)
+	it2 := db2.NewIterator(nil, nil)
 	for {
 		v := it.Next()
 		v2 := it2.Next()
@@ -98,27 +111,14 @@ func TestName(t *testing.T) {
 }
 
 /*
-	state_test.go:72: 000001.log 0x525bfb10b7b757008c1cd7e203947d3ab147bd0553caec07ed9d8fd84c666f41
-   state_test.go:72: CURRENT 0xa9fab754f1d15003108a400d3a46cb94cbae5407a86aac699db0041c76177c72
-   state_test.go:72: LOCK 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
-   state_test.go:72: LOG 0x480391049595c8d1b204992f62f86bfc458e41b4f6f9a24bcb581b9a4ad9a730
-   state_test.go:72: MANIFEST-000000 0xce560a9b6381d82394c3410f40a657384a30754a3a1dae9a1b5c3549bd91c331
+	//000001.log      CURRENT         LOCK            LOG             MANIFEST-000000
+	files := []string{"000001.log", "CURRENT", "LOCK", "LOG", "MANIFEST-000000"}
+	for _, file := range files {
+		fData, err := ioutil.ReadFile(filepath.Join(path, dbNEW, file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(file, types.BytesToHash(hashit(fData)).String())
+	}
 
-    state_test.go:72: 000001.log 0x525bfb10b7b757008c1cd7e203947d3ab147bd0553caec07ed9d8fd84c666f41
-    state_test.go:72: CURRENT 0xa9fab754f1d15003108a400d3a46cb94cbae5407a86aac699db0041c76177c72
-    state_test.go:72: LOCK 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
-    state_test.go:72: LOG 0x09c38d83939ca24d68afa472a4021d25c4e83985af57c33bf40fc84fca23a1ed
-    state_test.go:72: MANIFEST-000000 0xce560a9b6381d82394c3410f40a657384a30754a3a1dae9a1b5c3549bd91c331
-
-    state_test.go:74: 000001.log 0x525bfb10b7b757008c1cd7e203947d3ab147bd0553caec07ed9d8fd84c666f41
-    state_test.go:74: CURRENT 0xa9fab754f1d15003108a400d3a46cb94cbae5407a86aac699db0041c76177c72
-    state_test.go:74: LOCK 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
-    state_test.go:74: LOG 0x1232db1a8ebd50aba9289934652b6020ef523dc3e68cfc0748310176716edd64
-    state_test.go:74: MANIFEST-000000 0xce560a9b6381d82394c3410f40a657384a30754a3a1dae9a1b5c3549bd91c331
-
-    state_test.go:74: 000001.log 0x525bfb10b7b757008c1cd7e203947d3ab147bd0553caec07ed9d8fd84c666f41
-    state_test.go:74: CURRENT 0xa9fab754f1d15003108a400d3a46cb94cbae5407a86aac699db0041c76177c72
-    state_test.go:74: LOCK 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
-    state_test.go:74: LOG 0x831a2054bcdd595ff412d992752086de8f905f0c3486f9c4c0d5c952d9623300
-    state_test.go:74: MANIFEST-000000 0xce560a9b6381d82394c3410f40a657384a30754a3a1dae9a1b5c3549bd91c331
-*/
+ */
