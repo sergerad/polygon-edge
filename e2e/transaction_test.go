@@ -130,9 +130,7 @@ func TestEthTransfer(t *testing.T) {
 		},
 	}
 
-	//cfg:=""
 	srvs := framework.NewTestServers(t, 1, func(config *framework.TestServerConfig) {
-		t.Log(config.RootDir)
 		config.SetConsensus(framework.ConsensusDev)
 		for _, acc := range validAccounts {
 			config.Premine(acc.address, acc.balance)
@@ -141,8 +139,6 @@ func TestEthTransfer(t *testing.T) {
 	srv := srvs[0]
 
 	rpcClient := srv.JSONRPC()
-
-	//t.Fatal()
 
 	for _, testCase := range testTable {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -228,11 +224,6 @@ func TestEthTransfer(t *testing.T) {
 				"Receiver balance incorrect")
 		})
 	}
-	block, err := rpcClient.Eth().GetBlockByNumber(ethgo.Latest, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(block.Number, block.Hash.String(), block.StateRoot.String())
 }
 
 // getCount is a helper function for the stress test SC

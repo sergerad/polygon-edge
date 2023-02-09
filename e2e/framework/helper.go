@@ -451,14 +451,14 @@ func NewTestServers(t *testing.T, num int, conf func(*TestServerConfig)) []*Test
 
 	srvs := make([]*TestServer, 0, num)
 
-	//t.Cleanup(func() {
-	//	for _, srv := range srvs {
-	//		srv.Stop()
-	//		if err := os.RemoveAll(srv.Config.RootDir); err != nil {
-	//			t.Log(err)
-	//		}
-	//	}
-	//})
+	t.Cleanup(func() {
+		for _, srv := range srvs {
+			srv.Stop()
+			if err := os.RemoveAll(srv.Config.RootDir); err != nil {
+				t.Log(err)
+			}
+		}
+	})
 
 	logsDir, err := initLogsDir(t)
 	if err != nil {
