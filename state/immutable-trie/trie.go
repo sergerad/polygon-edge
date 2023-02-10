@@ -163,9 +163,11 @@ func (t *Txn) Lookup(key []byte) []byte {
 func (t *Txn) lookup(node interface{}, key []byte) (Node, []byte) {
 	switch n := node.(type) {
 	case nil:
+		fmt.Println("lookup", "nil", key)
 		return nil, nil
 
 	case *ValueNode:
+		fmt.Println("lookup", "value", key, n.hash)
 		if n.hash {
 			nc, ok, err := GetNode(n.buf, t.storage)
 			if err != nil {
@@ -182,12 +184,14 @@ func (t *Txn) lookup(node interface{}, key []byte) (Node, []byte) {
 		}
 
 		if len(key) == 0 {
+			fmt.Println("return", n.buf)
 			return nil, n.buf
 		} else {
 			return nil, nil
 		}
 
 	case *ShortNode:
+		fmt.Println("lookup", "short", key, n.hash)
 		plen := len(n.key)
 		if plen > len(key) || !bytes.Equal(key[:plen], n.key) {
 			return nil, nil
@@ -202,6 +206,7 @@ func (t *Txn) lookup(node interface{}, key []byte) (Node, []byte) {
 		return nil, res
 
 	case *FullNode:
+		fmt.Println("lookup", "full", key, n.hash)
 		if len(key) == 0 {
 			return t.lookup(n.value, key)
 		}

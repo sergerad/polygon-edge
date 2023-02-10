@@ -65,7 +65,7 @@ func CopyTrie(node Node, storage Storage, newStorage Storage, agg []byte) error 
 		}
 		var account state.Account
 		if err := account.UnmarshalRlp(n.buf); err != nil {
-			fmt.Println("cant parse", err, hex.EncodeToString(encodeCompact(agg)))
+			fmt.Println("cant parse", err, len(n.buf), hex.EncodeToString(encodeCompact(agg)))
 		} else {
 			if account.CodeHash != nil {
 				code, ok := storage.GetCode(types.BytesToHash(account.CodeHash))
@@ -90,7 +90,8 @@ func CopyTrie(node Node, storage Storage, newStorage Storage, agg []byte) error 
 	return nil
 }
 
-func HashChecker1(node Node, storage Storage) (types.Hash, error) {
+func HashChecker1(stateRoot []byte, storage Storage) (types.Hash, error) {
+	node, _, err := GetNode(stateRoot, storage)
 	h, ok := hasherPool.Get().(*hasher)
 	if !ok {
 		return types.Hash{}, errors.New("cant get hasher")

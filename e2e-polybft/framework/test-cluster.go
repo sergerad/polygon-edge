@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -85,6 +86,9 @@ type TestClusterConfig struct {
 	EpochReward       int
 	PropertyBaseTests bool
 	SecretsCallback   func([]types.Address, *TestClusterConfig)
+
+	InitialTrieDB    string
+	InitialStateRoot types.Hash
 
 	logsDirOnce sync.Once
 }
@@ -193,6 +197,13 @@ func WithValidatorSnapshot(validatorsLen uint64) ClusterOption {
 	}
 }
 
+func WithGenesisState(databasePath string, stateRoot types.Hash) ClusterOption {
+	return func(h *TestClusterConfig) {
+		h.InitialTrieDB = databasePath
+		h.InitialStateRoot = stateRoot
+	}
+}
+
 func WithBootnodeCount(cnt int) ClusterOption {
 	return func(h *TestClusterConfig) {
 		h.BootnodeCount = cnt
@@ -228,7 +239,7 @@ func isTrueEnv(e string) bool {
 }
 
 func NewTestCluster(t *testing.T, validatorsCount int, opts ...ClusterOption) *TestCluster {
-	t.Helper()
+	//t.Helper()
 
 	var err error
 
@@ -323,6 +334,7 @@ func NewTestCluster(t *testing.T, validatorsCount int, opts ...ClusterOption) *T
 			"--epoch-size", strconv.Itoa(cluster.Config.EpochSize),
 			"--epoch-reward", strconv.Itoa(cluster.Config.EpochReward),
 			"--premine", "0x0000000000000000000000000000000000000000",
+			"--trieroot", cluster.Config.InitialStateRoot.String(),
 		}
 
 		if len(cluster.Config.Premine) != 0 {
@@ -379,6 +391,12 @@ func (c *TestCluster) InitTestServer(t *testing.T, i int, isValidator bool, rela
 
 	logLevel := os.Getenv(envLogLevel)
 	dataDir := c.Config.Dir(c.Config.ValidatorPrefix + strconv.Itoa(i))
+	if c.Config.InitialTrieDB != "" {
+		err := CopyDir(c.Config.InitialTrieDB, filepath.Join(dataDir, "trie"))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	srv := NewTestServer(t, c.Config, func(config *TestServerConfig) {
 		config.DataDir = dataDir
@@ -579,4 +597,25 @@ func (c *TestCluster) InitSecrets(prefix string, count int) ([]types.Address, er
 	}
 
 	return result, nil
+}
+
+func CopyDir(source, destination string) error {
+	err := os.Mkdir(destination, 0777)
+	if err != nil {
+		return err
+	}
+
+	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		var relPath string = strings.Replace(path, source, "", 1)
+		if relPath == "" {
+			return nil
+		}
+
+		data, err := ioutil.ReadFile(filepath.Join(source, relPath))
+		if err != nil {
+			return err
+		}
+		return ioutil.WriteFile(filepath.Join(destination, relPath), data, 0777)
+	})
+	return err
 }

@@ -1,34 +1,40 @@
 package e2e
 
 import (
-	"context"
+	"github.com/0xPolygon/polygon-edge/consensus/polybft/contractsapi"
 	"github.com/0xPolygon/polygon-edge/crypto"
+	frameworkpolybft "github.com/0xPolygon/polygon-edge/e2e-polybft/framework"
 	"github.com/0xPolygon/polygon-edge/e2e/framework"
+	"golang.org/x/crypto/sha3"
+
 	itrie "github.com/0xPolygon/polygon-edge/state/immutable-trie"
+	"github.com/0xPolygon/polygon-edge/txrelayer"
 	"github.com/0xPolygon/polygon-edge/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/umbracle/ethgo"
-	"math/big"
+	"github.com/umbracle/ethgo/wallet"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
-func TestName(t *testing.T) {
+func TestMigration(t *testing.T) {
 	os.Setenv("EDGE_BINARY", "/Users/boris/GolandProjects/polygon-edge/polygon-edge")
+	os.Setenv("E2E_TESTS", "true")
+	os.Setenv("E2E_LOGS", "true")
 
-	userKey, _ := crypto.GenerateECDSAKey()
-	userAddr := crypto.PubKeyToAddress(&userKey.PublicKey)
-	userAddrEthgo := ethgo.Address(userAddr)
-	userKey2, _ := crypto.GenerateECDSAKey()
-	userAddr2 := crypto.PubKeyToAddress(&userKey2.PublicKey)
-	userAddrEthgo2 := ethgo.Address(userAddr2)
+	userKey, _ := wallet.GenerateKey()
+	userAddr := userKey.Address()
+	userKey2, _ := wallet.GenerateKey()
+	userAddr2 := userKey2.Address()
 
 	srvs := framework.NewTestServers(t, 1, func(config *framework.TestServerConfig) {
 		config.SetConsensus(framework.ConsensusDev)
-		config.Premine(userAddr, ethgo.Ether(10))
+		config.Premine(types.Address(userAddr), ethgo.Ether(10))
 	})
 	srv := srvs[0]
 
@@ -36,18 +42,16 @@ func TestName(t *testing.T) {
 
 	// Fetch the balances before sending
 	balanceSender, err := rpcClient.Eth().GetBalance(
-		userAddrEthgo,
+		userAddr,
 		ethgo.Latest,
 	)
 	assert.NoError(t, err)
-	t.Log(balanceSender)
 
 	balanceReceiver, err := rpcClient.Eth().GetBalance(
-		userAddrEthgo2,
+		userAddr2,
 		ethgo.Latest,
 	)
 	assert.NoError(t, err)
-	t.Log(balanceReceiver)
 
 	// Set the preSend balances
 	previousSenderBalance := balanceSender
@@ -59,19 +63,26 @@ func TestName(t *testing.T) {
 	}
 	t.Log(block.Number, block.Hash.String(), block.StateRoot.String())
 
-	// Do the transfer
-	ctx, cancel := context.WithTimeout(context.Background(), framework.DefaultTimeout)
-	defer cancel()
+	relayer, err := txrelayer.NewTxRelayer(txrelayer.WithIPAddress(srv.HTTPJSONRPCURL()))
+	require.NoError(t, err)
 
-	txn := &framework.PreparedTransaction{
+	receipt, err := relayer.SendTransaction(&ethgo.Transaction{
 		From:     userAddr,
 		To:       &userAddr2,
-		GasPrice: big.NewInt(1048576),
+		GasPrice: 1048576,
 		Gas:      1000000,
 		Value:    ethgo.Gwei(10000),
-	}
+	}, userKey)
+	assert.NoError(t, err)
+	assert.NotNil(t, receipt)
 
-	receipt, err := srv.SendRawTx(ctx, txn, userKey)
+	receipt, err = relayer.SendTransaction(&ethgo.Transaction{
+		From:     userAddr,
+		GasPrice: 1048576,
+		Gas:      1000000,
+		Input:    contractsapi.TestWriteBlockMetadata.Bytecode,
+	}, userKey)
+	deployedContractBalance := receipt.ContractAddress
 	assert.NoError(t, err)
 	assert.NotNil(t, receipt)
 
@@ -91,6 +102,13 @@ func TestName(t *testing.T) {
 	t.Log(previousSenderBalance, balanceSender)
 	t.Log(previousReceiverBalance, balanceReceiver)
 
+	initReceipt, err := ABITransaction(relayer, userKey, contractsapi.TestWriteBlockMetadata, receipt.ContractAddress, "init")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(initReceipt.Status)
+
 	block, err = rpcClient.Eth().GetBlockByNumber(ethgo.Latest, true)
 	if err != nil {
 		t.Fatal(err)
@@ -104,6 +122,7 @@ func TestName(t *testing.T) {
 	dbOLD := "trie"
 	dbNEW := "trieNew"
 
+	time.Sleep(time.Second)
 	db, err := leveldb.OpenFile(filepath.Join(path, dbOLD), &opt.Options{ReadOnly: true})
 	if err != nil {
 		t.Fatal(err)
@@ -116,11 +135,87 @@ func TestName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db2.Close()
 
 	stateStorage := itrie.NewKV(db)
 	stateStorageNew := itrie.NewKV(db2)
 
+	exSnapshot, err := itrie.NewState(stateStorage).NewSnapshotAt(types.Hash(stateRoot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("get addr")
+	t.Log(exSnapshot.GetAccount(types.Address(userAddr)))
+
+	rootNode, _, err := itrie.GetNode(stateRoot.Bytes(), stateStorage)
+	if err != nil {
+		t.Fatal()
+	}
+	oldTrie := itrie.NewTrieWithRoot(rootNode)
+	t.Log("Get old trie")
+	t.Log(oldTrie.Get(crypto.Keccak256(userAddr.Bytes()), stateStorage))
+	t.Log(oldTrie.Get(crypto.Keccak256(userAddr2.Bytes()), stateStorage))
+
+	err = itrie.CopyTrie1(stateRoot.Bytes(), stateStorage, stateStorageNew, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newTrie := itrie.NewTrieWithRoot(rootNode)
+	newStateRoot, err := newTrie.Txn(stateStorageNew).Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Get new trie")
+	t.Log(newTrie.Get(crypto.Keccak256(userAddr.Bytes()), stateStorageNew))
+	t.Log(newTrie.Get(crypto.Keccak256(userAddr2.Bytes()), stateStorageNew))
+
+	stateRoot3, err := itrie.HashChecker1(stateRoot.Bytes(), stateStorageNew)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = db2.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(types.BytesToHash(newStateRoot).String())
+	t.Log(stateRoot.String())
+	t.Log(stateRoot3.String())
+
+	cluster := frameworkpolybft.NewTestCluster(t, 7,
+		frameworkpolybft.WithNonValidators(2),
+		frameworkpolybft.WithValidatorSnapshot(5),
+		frameworkpolybft.WithGenesisState(newTrieDB, types.Hash(stateRoot)),
+	)
+	defer cluster.Stop()
+
+	require.NoError(t, cluster.WaitForBlock(5, 1*time.Minute))
+
+	senderBalanceAfterMigration, err := cluster.Servers[0].JSONRPC().Eth().GetBalance(userAddr, ethgo.Latest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiverBalanceAfterMigration, err := cluster.Servers[0].JSONRPC().Eth().GetBalance(userAddr2, ethgo.Latest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(senderBalanceAfterMigration, receiverBalanceAfterMigration)
+	t.Log(balanceSender, balanceReceiver)
+
+	require.NoError(t, cluster.WaitForBlock(10, 1*time.Minute))
+
+	deployedCode, err := cluster.Servers[0].JSONRPC().Eth().GetCode(deployedContractBalance, ethgo.Latest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(deployedCode)
+	t.Log(*types.EncodeBytes(contractsapi.TestWriteBlockMetadata.DeployedBytecode))
+	require.Equal(t, deployedCode, *types.EncodeBytes(contractsapi.TestWriteBlockMetadata.DeployedBytecode))
+}
+
+func PrintDB(db *leveldb.DB, t *testing.T) {
+	t.Log("copy")
 	it := db.NewIterator(nil, nil)
 	id := 0
 	for {
@@ -131,45 +226,6 @@ func TestName(t *testing.T) {
 		t.Log(id, it.Key(), it.Value())
 		id++
 	}
-
-	rootNode, _, err := itrie.GetNode(stateRoot.Bytes(), stateStorage)
-	if err != nil {
-		t.Fatal()
-	}
-
-	err = itrie.CopyTrie1(stateRoot.Bytes(), stateStorage, stateStorageNew, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Log("copy")
-	it = db2.NewIterator(nil, nil)
-	id = 0
-	for {
-		v := it.Next()
-		if v == false {
-			break
-		}
-		t.Log(id, it.Key(), it.Value())
-		id++
-	}
-
-	newTrie := itrie.NewTrieWithRoot(rootNode)
-	newStateRoot, err := newTrie.Txn(stateStorageNew).Hash()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	stateRoot3, err := itrie.HashChecker1(rootNode, stateStorageNew)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Log(types.BytesToHash(newStateRoot).String())
-	t.Log(stateRoot.String())
-	t.Log(stateRoot3.String())
-	t.Fatal()
-
 }
 
 /*
@@ -186,3 +242,10 @@ func TestName(t *testing.T) {
 
 
 */
+
+func hashit(k []byte) []byte {
+	h := sha3.NewLegacyKeccak256()
+	h.Write(k)
+
+	return h.Sum(nil)
+}

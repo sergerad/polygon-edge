@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	consensusPolyBFT "github.com/0xPolygon/polygon-edge/consensus/polybft"
 	"math/big"
 	"net"
 	"net/http"
@@ -79,11 +80,6 @@ type Server struct {
 	stateSyncRelayer *statesyncrelayer.StateSyncRelayer
 }
 
-var dirPaths = []string{
-	"blockchain",
-	"trie",
-}
-
 // newFileLogger returns logger instance that writes all logs to a specified file.
 // If log file can't be created, it returns an error
 func newFileLogger(config *Config) (hclog.Logger, error) {
@@ -142,6 +138,11 @@ func NewServer(config *Config) (*Server, error) {
 
 	m.logger.Info("Data dir", "path", config.DataDir)
 
+	var dirPaths = []string{
+		"blockchain",
+		"trie",
+	}
+
 	// Generate all the paths in the dataDir
 	if err := common.SetupDataDir(config.DataDir, dirPaths); err != nil {
 		return nil, fmt.Errorf("failed to create data directories: %w", err)
@@ -199,8 +200,33 @@ func NewServer(config *Config) (*Server, error) {
 		m.executor.GenesisPostHook = factory(m.config.Chain, engineName)
 	}
 
+	var genesisRoot types.Hash
+	//todo handle non-first blocks
+	if ConsensusType(engineName) == PolyBFTConsensus {
+		polyBFTConfig, err := consensusPolyBFT.GetPolyBFTConfig(config.Chain)
+		if err != nil {
+			return nil, err
+		}
+
+		if polyBFTConfig.InitialTrieRoot != types.ZeroHash {
+			checkedInitialTrieRoot, err := itrie.HashChecker1(polyBFTConfig.InitialTrieRoot.Bytes(), stateStorage)
+			if err != nil {
+				return nil, fmt.Errorf("Erron on state root verification %w", err)
+			}
+			if checkedInitialTrieRoot != polyBFTConfig.InitialTrieRoot {
+				return nil, errors.New("invalid initial state root")
+			}
+			logger.Warn("Initial state root checked and correct")
+			genesisRoot, err = m.executor.WriteGenesis(config.Chain.Genesis.Alloc, polyBFTConfig.InitialTrieRoot)
+		}
+	} else {
+		genesisRoot, err = m.executor.WriteGenesis(config.Chain.Genesis.Alloc, types.ZeroHash)
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	// compute the genesis root state
-	genesisRoot := m.executor.WriteGenesis(config.Chain.Genesis.Alloc)
 	config.Chain.Genesis.StateRoot = genesisRoot
 
 	// use the eip155 signer
