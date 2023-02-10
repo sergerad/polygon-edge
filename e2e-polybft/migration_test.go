@@ -1,17 +1,15 @@
 package e2e
 
 import (
-	"github.com/0xPolygon/polygon-edge/consensus/polybft/contractsapi"
-	"github.com/0xPolygon/polygon-edge/crypto"
-	frameworkpolybft "github.com/0xPolygon/polygon-edge/e2e-polybft/framework"
-	"github.com/0xPolygon/polygon-edge/e2e/framework"
-	"golang.org/x/crypto/sha3"
-
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/0xPolygon/polygon-edge/consensus/polybft/contractsapi"
+	"github.com/0xPolygon/polygon-edge/crypto"
+	frameworkpolybft "github.com/0xPolygon/polygon-edge/e2e-polybft/framework"
+	"github.com/0xPolygon/polygon-edge/e2e/framework"
 	itrie "github.com/0xPolygon/polygon-edge/state/immutable-trie"
 	"github.com/0xPolygon/polygon-edge/txrelayer"
 	"github.com/0xPolygon/polygon-edge/types"
@@ -21,6 +19,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/umbracle/ethgo"
 	"github.com/umbracle/ethgo/wallet"
+	"golang.org/x/crypto/sha3"
 )
 
 func TestMigration(t *testing.T) {
