@@ -151,7 +151,10 @@ func TestMigration(t *testing.T) {
 	}
 
 	t.Log("get addr")
-	t.Log(exSnapshot.GetAccount(types.Address(userAddr)))
+	acc1, err := exSnapshot.GetAccount(types.Address(userAddr))
+	require.NoError(t, err)
+	t.Log(acc1)
+	assert.Equal(t, balanceSender, acc1.Balance)
 
 	rootNode, _, err := itrie.GetNode(stateRoot.Bytes(), stateStorage)
 	if err != nil {
