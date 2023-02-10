@@ -2,6 +2,11 @@ package e2e
 
 import (
 	"context"
+	"math/big"
+	"os"
+	"path/filepath"
+	"testing"
+
 	"github.com/0xPolygon/polygon-edge/crypto"
 	"github.com/0xPolygon/polygon-edge/e2e/framework"
 	itrie "github.com/0xPolygon/polygon-edge/state/immutable-trie"
@@ -10,15 +15,9 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/umbracle/ethgo"
-	"math/big"
-	"os"
-	"path/filepath"
-	"testing"
 )
 
 func TestName(t *testing.T) {
-	os.Setenv("EDGE_BINARY", "/Users/boris/GolandProjects/polygon-edge/polygon-edge")
-
 	userKey, _ := crypto.GenerateECDSAKey()
 	userAddr := crypto.PubKeyToAddress(&userKey.PublicKey)
 	userAddrEthgo := ethgo.Address(userAddr)
