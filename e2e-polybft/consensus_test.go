@@ -103,6 +103,7 @@ func TestE2E_Consensus_RegisterValidator(t *testing.T) {
 	os.Setenv("EDGE_BINARY", "/Users/boris/GolandProjects/polygon-edge/polygon-edge")
 	os.Setenv("E2E_TESTS", "true")
 	os.Setenv("E2E_LOGS", "true")
+
 	const (
 		validatorSize       = 5
 		newValidatorSecrets = "test-chain-6"

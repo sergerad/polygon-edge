@@ -139,6 +139,7 @@ func (t *Txn) hash(node Node, h *hasher, a *fastrlp.Arena, d int) *fastrlp.Value
 	var aa *fastrlp.Arena
 
 	var idx int
+
 	if h, ok := node.Hash(); ok {
 		return a.NewCopyBytes(h)
 	}

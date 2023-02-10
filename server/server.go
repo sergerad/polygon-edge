@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	consensusPolyBFT "github.com/0xPolygon/polygon-edge/consensus/polybft"
 	"math/big"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	consensusPolyBFT "github.com/0xPolygon/polygon-edge/consensus/polybft"
 
 	"github.com/0xPolygon/polygon-edge/archive"
 	"github.com/0xPolygon/polygon-edge/blockchain"
@@ -33,7 +34,7 @@ import (
 	"github.com/0xPolygon/polygon-edge/state/runtime/tracer"
 	"github.com/0xPolygon/polygon-edge/txpool"
 	"github.com/0xPolygon/polygon-edge/types"
-	"github.com/hashicorp/go-hclog"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/umbracle/ethgo"
@@ -211,17 +212,21 @@ func NewServer(config *Config) (*Server, error) {
 		if polyBFTConfig.InitialTrieRoot != types.ZeroHash {
 			checkedInitialTrieRoot, err := itrie.HashChecker1(polyBFTConfig.InitialTrieRoot.Bytes(), stateStorage)
 			if err != nil {
-				return nil, fmt.Errorf("Erron on state root verification %w", err)
+				return nil, fmt.Errorf("error on state root verification %w", err)
 			}
+
 			if checkedInitialTrieRoot != polyBFTConfig.InitialTrieRoot {
 				return nil, errors.New("invalid initial state root")
 			}
+
 			logger.Warn("Initial state root checked and correct")
+
 			genesisRoot, err = m.executor.WriteGenesis(config.Chain.Genesis.Alloc, polyBFTConfig.InitialTrieRoot)
 		}
 	} else {
 		genesisRoot, err = m.executor.WriteGenesis(config.Chain.Genesis.Alloc, types.ZeroHash)
 	}
+
 	if err != nil {
 		return nil, err
 	}

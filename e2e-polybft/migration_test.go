@@ -7,6 +7,11 @@ import (
 	"github.com/0xPolygon/polygon-edge/e2e/framework"
 	"golang.org/x/crypto/sha3"
 
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
 	itrie "github.com/0xPolygon/polygon-edge/state/immutable-trie"
 	"github.com/0xPolygon/polygon-edge/txrelayer"
 	"github.com/0xPolygon/polygon-edge/types"
@@ -16,10 +21,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/umbracle/ethgo"
 	"github.com/umbracle/ethgo/wallet"
-	"os"
-	"path/filepath"
-	"testing"
-	"time"
 )
 
 func TestMigration(t *testing.T) {
@@ -61,6 +62,7 @@ func TestMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Log(block.Number, block.Hash.String(), block.StateRoot.String())
 
 	relayer, err := txrelayer.NewTxRelayer(txrelayer.WithIPAddress(srv.HTTPJSONRPCURL()))
@@ -82,19 +84,21 @@ func TestMigration(t *testing.T) {
 		Gas:      1000000,
 		Input:    contractsapi.TestWriteBlockMetadata.Bytecode,
 	}, userKey)
+
 	deployedContractBalance := receipt.ContractAddress
+
 	assert.NoError(t, err)
 	assert.NotNil(t, receipt)
 
 	// Fetch the balances after sending
 	balanceSender, err = rpcClient.Eth().GetBalance(
-		ethgo.Address(userAddr),
+		userAddr,
 		ethgo.Latest,
 	)
 	assert.NoError(t, err)
 
 	balanceReceiver, err = rpcClient.Eth().GetBalance(
-		ethgo.Address(userAddr2),
+		userAddr2,
 		ethgo.Latest,
 	)
 	assert.NoError(t, err)
@@ -119,10 +123,13 @@ func TestMigration(t *testing.T) {
 
 	path := srvs[0].Config.RootDir
 	srvs[0].Stop()
+
 	dbOLD := "trie"
 	dbNEW := "trieNew"
 
+	//hack for db closing
 	time.Sleep(time.Second)
+
 	db, err := leveldb.OpenFile(filepath.Join(path, dbOLD), &opt.Options{ReadOnly: true})
 	if err != nil {
 		t.Fatal(err)
@@ -131,6 +138,7 @@ func TestMigration(t *testing.T) {
 
 	newTrieDB := filepath.Join(path, dbNEW)
 	os.RemoveAll(newTrieDB)
+
 	db2, err := leveldb.OpenFile(newTrieDB, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -143,6 +151,7 @@ func TestMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Log("get addr")
 	t.Log(exSnapshot.GetAccount(types.Address(userAddr)))
 
@@ -150,7 +159,9 @@ func TestMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
+
 	oldTrie := itrie.NewTrieWithRoot(rootNode)
+
 	t.Log("Get old trie")
 	t.Log(oldTrie.Get(crypto.Keccak256(userAddr.Bytes()), stateStorage))
 	t.Log(oldTrie.Get(crypto.Keccak256(userAddr2.Bytes()), stateStorage))
@@ -161,6 +172,7 @@ func TestMigration(t *testing.T) {
 	}
 
 	newTrie := itrie.NewTrieWithRoot(rootNode)
+
 	newStateRoot, err := newTrie.Txn(stateStorageNew).Hash()
 	if err != nil {
 		t.Fatal(err)
@@ -174,6 +186,7 @@ func TestMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	err = db2.Close()
 	if err != nil {
 		t.Fatal(err)
@@ -196,10 +209,12 @@ func TestMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	receiverBalanceAfterMigration, err := cluster.Servers[0].JSONRPC().Eth().GetBalance(userAddr2, ethgo.Latest)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Log(senderBalanceAfterMigration, receiverBalanceAfterMigration)
 	t.Log(balanceSender, balanceReceiver)
 
@@ -209,20 +224,24 @@ func TestMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Log(deployedCode)
 	t.Log(*types.EncodeBytes(contractsapi.TestWriteBlockMetadata.DeployedBytecode))
 	require.Equal(t, deployedCode, *types.EncodeBytes(contractsapi.TestWriteBlockMetadata.DeployedBytecode))
 }
 
-func PrintDB(db *leveldb.DB, t *testing.T) {
-	t.Log("copy")
+func PrintDB(t *testing.T, db *leveldb.DB) {
+	t.Helper()
+
 	it := db.NewIterator(nil, nil)
 	id := 0
+
 	for {
 		v := it.Next()
 		if v == false {
 			break
 		}
+
 		t.Log(id, it.Key(), it.Value())
 		id++
 	}

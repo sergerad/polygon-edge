@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+
 	"github.com/0xPolygon/polygon-edge/state"
 	"github.com/0xPolygon/polygon-edge/types"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -40,7 +41,9 @@ func CopyTrie1(nodeHash []byte, storage Storage, newStorage Storage, agg []byte)
 	if err != nil {
 		return err
 	}
+
 	newStorage.Put(nodeHash, data)
+
 	return CopyTrie(node, storage, newStorage, agg)
 }
 
@@ -53,6 +56,7 @@ func CopyTrie(node Node, storage Storage, newStorage Storage, agg []byte) error 
 			if n.children[i] == nil {
 				continue
 			}
+
 			err := CopyTrie(n.children[i], storage, newStorage, append(agg, uint8(i)))
 			if err != nil {
 				return err
@@ -63,7 +67,9 @@ func CopyTrie(node Node, storage Storage, newStorage Storage, agg []byte) error 
 		if n.hash {
 			return CopyTrie1(n.buf, storage, newStorage, agg)
 		}
+
 		var account state.Account
+
 		if err := account.UnmarshalRlp(n.buf); err != nil {
 			fmt.Println("cant parse", err, len(n.buf), hex.EncodeToString(encodeCompact(agg)))
 		} else {
@@ -76,8 +82,7 @@ func CopyTrie(node Node, storage Storage, newStorage Storage, agg []byte) error 
 			}
 
 			if account.Root != types.EmptyRootHash {
-				err = CopyTrie1(account.Root[:], storage, newStorage, nil)
-				return err
+				return CopyTrie1(account.Root[:], storage, newStorage, nil)
 			}
 		}
 
@@ -87,16 +92,20 @@ func CopyTrie(node Node, storage Storage, newStorage Storage, agg []byte) error 
 			return err
 		}
 	}
+
 	return nil
 }
 
 func HashChecker1(stateRoot []byte, storage Storage) (types.Hash, error) {
 	node, _, err := GetNode(stateRoot, storage)
+
 	h, ok := hasherPool.Get().(*hasher)
 	if !ok {
 		return types.Hash{}, errors.New("cant get hasher")
 	}
+
 	arena, _ := h.AcquireArena()
+
 	val, err := HashChecker(node, h, arena, 0, storage)
 	if err != nil {
 		return types.Hash{}, err
@@ -104,8 +113,10 @@ func HashChecker1(stateRoot []byte, storage Storage) (types.Hash, error) {
 
 	h.ReleaseArenas(0)
 	hasherPool.Put(h)
+
 	return types.BytesToHash(val.Raw()), nil
 }
+
 func HashChecker(node Node, h *hasher, a *fastrlp.Arena, d int, storage Storage) (*fastrlp.Value, error) {
 	var val *fastrlp.Value
 
@@ -120,12 +131,13 @@ func HashChecker(node Node, h *hasher, a *fastrlp.Arena, d int, storage Storage)
 			if err != nil {
 				return nil, err
 			}
+
 			return HashChecker(nd, h, a, d, storage)
 		}
+
 		return a.NewCopyBytes(n.buf), nil
 
 	case *ShortNode:
-		fmt.Println("short")
 		child, err := HashChecker(n.child, h, a, d+1, storage)
 		if err != nil {
 			return nil, err
@@ -136,8 +148,6 @@ func HashChecker(node Node, h *hasher, a *fastrlp.Arena, d int, storage Storage)
 		val.Set(child)
 
 	case *FullNode:
-		fmt.Println("full")
-
 		val = a.NewArray()
 
 		aa, idx = h.AcquireArena()

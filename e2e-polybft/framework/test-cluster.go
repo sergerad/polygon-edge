@@ -239,7 +239,7 @@ func isTrueEnv(e string) bool {
 }
 
 func NewTestCluster(t *testing.T, validatorsCount int, opts ...ClusterOption) *TestCluster {
-	//t.Helper()
+	t.Helper()
 
 	var err error
 
@@ -390,6 +390,7 @@ func (c *TestCluster) InitTestServer(t *testing.T, i int, isValidator bool, rela
 	t.Helper()
 
 	logLevel := os.Getenv(envLogLevel)
+
 	dataDir := c.Config.Dir(c.Config.ValidatorPrefix + strconv.Itoa(i))
 	if c.Config.InitialTrieDB != "" {
 		err := CopyDir(c.Config.InitialTrieDB, filepath.Join(dataDir, "trie"))
@@ -606,7 +607,7 @@ func CopyDir(source, destination string) error {
 	}
 
 	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
-		var relPath string = strings.Replace(path, source, "", 1)
+		relPath := strings.Replace(path, source, "", 1)
 		if relPath == "" {
 			return nil
 		}
@@ -615,7 +616,9 @@ func CopyDir(source, destination string) error {
 		if err != nil {
 			return err
 		}
-		return ioutil.WriteFile(filepath.Join(destination, relPath), data, 0777)
+
+		return ioutil.WriteFile(filepath.Join(destination, relPath), data, 0600)
 	})
+
 	return err
 }
