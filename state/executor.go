@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	spuriousDragonMaxCodeSize = 24576
+	SpuriousDragonMaxCodeSize = 24576
 
 	TxGas                 uint64 = 21000 // Per transaction not creating a contract
 	TxGasContractCreation uint64 = 53000 // Per transaction that creates a contract
@@ -70,6 +70,21 @@ func (e *Executor) WriteGenesis(
 	}
 
 	txn := NewTxn(snap)
+	config := e.config.Forks.At(0)
+
+	env := runtime.TxContext{
+		ChainID: e.config.ChainID,
+	}
+
+	transition := &Transition{
+		logger:      e.logger,
+		ctx:         env,
+		state:       txn,
+		auxState:    e.state,
+		gasPool:     uint64(env.GasLimit),
+		config:      config,
+		precompiles: precompiled.NewPrecompiled(),
+	}
 	config := e.config.Forks.At(0)
 
 	env := runtime.TxContext{
@@ -185,7 +200,7 @@ func (e *Executor) BeginTxn(
 		Number:     int64(header.Number),
 		Difficulty: types.BytesToHash(new(big.Int).SetUint64(header.Difficulty).Bytes()),
 		GasLimit:   int64(header.GasLimit),
-		ChainID:    int64(e.config.ChainID),
+		ChainID:    e.config.ChainID,
 	}
 
 	txn := &Transition{
@@ -689,7 +704,7 @@ func (t *Transition) applyCreate(c *runtime.Contract, host runtime.Host) *runtim
 		return result
 	}
 
-	if t.config.EIP158 && len(result.ReturnValue) > spuriousDragonMaxCodeSize {
+	if t.config.EIP158 && len(result.ReturnValue) > SpuriousDragonMaxCodeSize {
 		// Contract size exceeds 'SpuriousDragon' size limit
 		t.state.RevertToSnapshot(snapshot)
 

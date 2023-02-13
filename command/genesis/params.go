@@ -88,6 +88,7 @@ type genesisParams struct {
 
 	initialStateRoot string
 	initialTrie      string
+
 }
 
 func (p *genesisParams) validateFlags() error {
@@ -323,7 +324,7 @@ func (p *genesisParams) initGenesisConfig() error {
 			GasUsed:    command.DefaultGenesisGasUsed,
 		},
 		Params: &chain.Params{
-			ChainID: int(p.chainID),
+			ChainID: int64(p.chainID),
 			Forks:   chain.AllForksEnabled,
 			Engine:  p.consensusEngineConfig,
 		},

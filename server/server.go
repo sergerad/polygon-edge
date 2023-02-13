@@ -145,7 +145,7 @@ func NewServer(config *Config) (*Server, error) {
 	}
 
 	// Generate all the paths in the dataDir
-	if err := common.SetupDataDir(config.DataDir, dirPaths); err != nil {
+	if err := common.SetupDataDir(config.DataDir, dirPaths, 0770); err != nil {
 		return nil, fmt.Errorf("failed to create data directories: %w", err)
 	}
 
@@ -201,6 +201,12 @@ func NewServer(config *Config) (*Server, error) {
 		m.executor.GenesisPostHook = factory(m.config.Chain, engineName)
 	}
 
+	// custom write genesis hook per consensus engine
+	engineName := m.config.Chain.Params.GetEngine()
+	if factory, exists := genesisCreationFactory[ConsensusType(engineName)]; exists {
+		m.executor.GenesisPostHook = factory(m.config.Chain, engineName)
+	}
+
 	var genesisRoot types.Hash
 	//todo handle non-first blocks
 	if ConsensusType(engineName) == PolyBFTConsensus {
@@ -235,7 +241,7 @@ func NewServer(config *Config) (*Server, error) {
 	config.Chain.Genesis.StateRoot = genesisRoot
 
 	// use the eip155 signer
-	signer := crypto.NewEIP155Signer(uint64(m.config.Chain.Params.ChainID))
+	signer := crypto.NewEIP155Signer(chain.AllForksEnabled.At(0), uint64(m.config.Chain.Params.ChainID))
 
 	// blockchain object
 	m.blockchain, err = blockchain.NewBlockchain(logger, m.config.DataDir, config.Chain, nil, m.executor, signer)

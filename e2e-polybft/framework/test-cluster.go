@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -20,6 +19,7 @@ import (
 	"github.com/0xPolygon/polygon-edge/command"
 	"github.com/0xPolygon/polygon-edge/command/genesis"
 	"github.com/0xPolygon/polygon-edge/command/rootchain/helper"
+	"github.com/0xPolygon/polygon-edge/helper/common"
 	"github.com/0xPolygon/polygon-edge/types"
 	"github.com/stretchr/testify/require"
 )
@@ -138,7 +138,7 @@ func (c *TestClusterConfig) GetStdout(name string, custom ...io.Writer) io.Write
 func (c *TestClusterConfig) initLogsDir() {
 	logsDir := path.Join("..", fmt.Sprintf("e2e-logs-%d", startTime), c.t.Name())
 
-	if err := os.MkdirAll(logsDir, 0750); err != nil {
+	if err := common.CreateDirSafe(logsDir, 0750); err != nil {
 		c.t.Fatal(err)
 	}
 
@@ -582,6 +582,7 @@ func (c *TestCluster) InitSecrets(prefix string, count int) ([]types.Address, er
 		"polybft-secrets",
 		"--data-dir", path.Join(c.Config.TmpDir, prefix),
 		"--num", strconv.Itoa(count),
+		"--insecure",
 	}
 	stdOut := c.Config.GetStdout("polybft-secrets", &b)
 
