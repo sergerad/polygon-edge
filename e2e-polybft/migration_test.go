@@ -22,11 +22,8 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// Add `-run TestMigration` to Makefile `test-e2e-polybft` command to run this test
 func TestMigration(t *testing.T) {
-	os.Setenv("EDGE_BINARY", "/Users/boris/GolandProjects/polygon-edge/polygon-edge")
-	os.Setenv("E2E_TESTS", "true")
-	os.Setenv("E2E_LOGS", "true")
-
 	userKey, _ := wallet.GenerateKey()
 	userAddr := userKey.Address()
 	userKey2, _ := wallet.GenerateKey()
@@ -64,7 +61,7 @@ func TestMigration(t *testing.T) {
 
 	t.Log(block.Number, block.Hash.String(), block.StateRoot.String())
 
-	relayer, err := txrelayer.NewTxRelayer(txrelayer.WithIPAddress(srv.HTTPJSONRPCURL()))
+	relayer, err := txrelayer.NewTxRelayer(txrelayer.WithClient(rpcClient))
 	require.NoError(t, err)
 
 	receipt, err := relayer.SendTransaction(&ethgo.Transaction{
@@ -95,12 +92,14 @@ func TestMigration(t *testing.T) {
 		ethgo.Latest,
 	)
 	assert.NoError(t, err)
+	assert.NotEqual(t, previousSenderBalance, balanceSender)
 
 	balanceReceiver, err = rpcClient.Eth().GetBalance(
 		userAddr2,
 		ethgo.Latest,
 	)
 	assert.NoError(t, err)
+	assert.NotEqual(t, previousReceiverBalance, balanceReceiver)
 
 	t.Log(previousSenderBalance, balanceSender)
 	t.Log(previousReceiverBalance, balanceReceiver)
@@ -152,7 +151,10 @@ func TestMigration(t *testing.T) {
 	}
 
 	t.Log("get addr")
-	t.Log(exSnapshot.GetAccount(types.Address(userAddr)))
+	acc1, err := exSnapshot.GetAccount(types.Address(userAddr))
+	require.NoError(t, err)
+	t.Log(acc1)
+	assert.Equal(t, balanceSender, acc1.Balance)
 
 	rootNode, _, err := itrie.GetNode(stateRoot.Bytes(), stateStorage)
 	if err != nil {
@@ -162,8 +164,13 @@ func TestMigration(t *testing.T) {
 	oldTrie := itrie.NewTrieWithRoot(rootNode)
 
 	t.Log("Get old trie")
-	t.Log(oldTrie.Get(crypto.Keccak256(userAddr.Bytes()), stateStorage))
-	t.Log(oldTrie.Get(crypto.Keccak256(userAddr2.Bytes()), stateStorage))
+	oldAddr1Node, ok := oldTrie.Get(crypto.Keccak256(userAddr.Bytes()), stateStorage)
+	require.True(t, ok)
+	t.Log(oldAddr1Node)
+
+	oldAddr2Node, ok := oldTrie.Get(crypto.Keccak256(userAddr2.Bytes()), stateStorage)
+	require.True(t, ok)
+	t.Log(oldAddr2Node)
 
 	err = itrie.CopyTrie1(stateRoot.Bytes(), stateStorage, stateStorageNew, nil)
 	if err != nil {
@@ -178,8 +185,15 @@ func TestMigration(t *testing.T) {
 	}
 
 	t.Log("Get new trie")
-	t.Log(newTrie.Get(crypto.Keccak256(userAddr.Bytes()), stateStorageNew))
-	t.Log(newTrie.Get(crypto.Keccak256(userAddr2.Bytes()), stateStorageNew))
+	newAddr1Node, ok := newTrie.Get(crypto.Keccak256(userAddr.Bytes()), stateStorageNew)
+	require.True(t, ok)
+	t.Log(newAddr1Node)
+	assert.Equal(t, oldAddr1Node, newAddr1Node)
+
+	newAddr2Node, ok := newTrie.Get(crypto.Keccak256(userAddr2.Bytes()), stateStorageNew)
+	require.True(t, ok)
+	t.Log(newAddr2Node)
+	assert.Equal(t, oldAddr2Node, newAddr2Node)
 
 	stateRoot3, err := itrie.HashChecker1(stateRoot.Bytes(), stateStorageNew)
 	if err != nil {
@@ -214,6 +228,8 @@ func TestMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	assert.Equal(t, balanceSender, senderBalanceAfterMigration)
+	assert.Equal(t, balanceReceiver, receiverBalanceAfterMigration)
 	t.Log(senderBalanceAfterMigration, receiverBalanceAfterMigration)
 	t.Log(balanceSender, balanceReceiver)
 
