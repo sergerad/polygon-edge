@@ -85,21 +85,6 @@ func (e *Executor) WriteGenesis(
 		config:      config,
 		precompiles: precompiled.NewPrecompiled(),
 	}
-	config := e.config.Forks.At(0)
-
-	env := runtime.TxContext{
-		ChainID: int64(e.config.ChainID),
-	}
-
-	transition := &Transition{
-		logger:      e.logger,
-		ctx:         env,
-		state:       txn,
-		auxState:    e.state,
-		gasPool:     uint64(env.GasLimit),
-		config:      config,
-		precompiles: precompiled.NewPrecompiled(),
-	}
 
 	for addr, account := range alloc {
 		if account.Balance != nil {

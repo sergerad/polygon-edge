@@ -201,12 +201,6 @@ func NewServer(config *Config) (*Server, error) {
 		m.executor.GenesisPostHook = factory(m.config.Chain, engineName)
 	}
 
-	// custom write genesis hook per consensus engine
-	engineName := m.config.Chain.Params.GetEngine()
-	if factory, exists := genesisCreationFactory[ConsensusType(engineName)]; exists {
-		m.executor.GenesisPostHook = factory(m.config.Chain, engineName)
-	}
-
 	var genesisRoot types.Hash
 	//todo handle non-first blocks
 	if ConsensusType(engineName) == PolyBFTConsensus {
