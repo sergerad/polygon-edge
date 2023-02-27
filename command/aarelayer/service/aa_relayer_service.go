@@ -146,10 +146,15 @@ func (rs *AARelayerService) executeJob(ctx context.Context, stateTx *AAStateTran
 }
 
 func (rs *AARelayerService) makeEthgoTransaction(stateTx *AAStateTransaction) (*ethgo.Transaction, error) {
-	// TODO: encode stateTx to input
+	input, err := stateTx.Tx.ToAbi()
+	if err != nil {
+		return nil, err
+	}
+
 	return &ethgo.Transaction{
 		From:  rs.key.Address(),
-		Input: nil,
+		To:    (*ethgo.Address)(&rs.invokerAddr),
+		Input: input,
 		Nonce: atomic.LoadUint64(&rs.currentNonce),
 	}, nil
 }
