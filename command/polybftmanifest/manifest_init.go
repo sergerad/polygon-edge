@@ -159,7 +159,7 @@ func (p *manifestInitParams) validateFlags() error {
 
 	if p.stakeRaw != "" {
 		if stake, err = types.ParseUint256orHex(&p.stakeRaw); err != nil {
-			return fmt.Errorf("invalid stake amount provided '%s': %w", p.premineBalanceRaw, err)
+			return fmt.Errorf("invalid stake amount provided '%s': %w", p.stakeRaw, err)
 		}
 	}
 
