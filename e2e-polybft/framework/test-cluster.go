@@ -79,7 +79,7 @@ type TestClusterConfig struct {
 	ValidatorSetSize  uint64
 	EpochSize         int
 	EpochReward       int
-	SecretsCallback   func([]types.Address, *TestClusterConfig)
+	SecretsCallback   func([]types.Address, *TestClusterConfig, *TestCluster)
 
 	NumBlockConfirmations uint64
 
@@ -166,7 +166,7 @@ func WithPremineValidators(premineBalance string) ClusterOption {
 	}
 }
 
-func WithSecretsCallback(fn func([]types.Address, *TestClusterConfig)) ClusterOption {
+func WithSecretsCallback(fn func([]types.Address, *TestClusterConfig, *TestCluster)) ClusterOption {
 	return func(h *TestClusterConfig) {
 		h.SecretsCallback = fn
 	}
@@ -274,7 +274,7 @@ func NewTestCluster(t *testing.T, validatorsCount int, opts ...ClusterOption) *T
 		require.NoError(t, err)
 
 		if cluster.Config.SecretsCallback != nil {
-			cluster.Config.SecretsCallback(addresses, cluster.Config)
+			cluster.Config.SecretsCallback(addresses, cluster.Config, cluster)
 		}
 	}
 
