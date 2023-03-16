@@ -37,7 +37,8 @@ var (
 		"tuple(bytes32 typeHash, bytes32 name, bytes32 version, uint256 chainId, address verifyingContract)",
 	)
 
-	// function invoke(Signature calldata signature, Transaction calldata transaction) external payable nonReentrant {
+	// invokerMethodAbiType is function invoke(
+	//	Signature calldata signature, Transaction calldata transaction) external payable nonReentrant
 	invokerMethodAbiType = abi.MustNewMethod(
 		`function invoke(
 			tuple(uint256 r,uint256 s,bool v) signature,

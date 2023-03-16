@@ -98,6 +98,10 @@ func (rp *aarelayerSendTxParams) validateFlags() error {
 		})
 	}
 
+	if rp.invokerAddr == "" {
+		return errors.New("address of invoker smart contract not specified")
+	}
+
 	return sidechainHelper.ValidateSecretFlags(rp.accountDir, rp.configPath)
 }
 
@@ -174,7 +178,7 @@ func setFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
 		&params.invokerAddr,
 		invokerAddrFlag,
-		service.DefaultAAInvokerAddress.String(),
+		"",
 		"address of invoker smart contract",
 	)
 

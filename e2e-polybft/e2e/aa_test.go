@@ -26,7 +26,9 @@ func TestE2E_AccountAbstraction(t *testing.T) {
 
 	someRandomAddress1 := types.StringToAddress("0xff00ff00ff00cc00bb11893")
 	someRandomAddress2 := types.StringToAddress("0xff00ff00ff00cc00bb11894")
-	deployerAccount := wallet.GenerateAccount()
+
+	deployerAccount, err := wallet.GenerateAccount()
+	require.NoError(t, err)
 
 	aaInvoker, err := artifact.DecodeArtifact([]byte(contractsapi.AccountAbstractionInvokerArtifact))
 	require.NoError(t, err)
@@ -50,7 +52,7 @@ func TestE2E_AccountAbstraction(t *testing.T) {
 	txRelayer, err := txrelayer.NewTxRelayer(txrelayer.WithIPAddress(cluster.Servers[0].JSONRPCAddr()))
 	require.NoError(t, err)
 
-	cluster.WaitForBlock(2, time.Second*20)
+	require.NoError(t, cluster.WaitForBlock(2, time.Second*20))
 
 	// deploy account abstraction smart contract
 	receipt, err := txRelayer.SendTransaction(&ethgo.Transaction{
@@ -73,17 +75,19 @@ func TestE2E_AccountAbstraction(t *testing.T) {
 		})
 	defer aaRelayer.Stop()
 
+	time.Sleep(time.Second * 10) // wait some time for aa relayer reset server to start
+
 	// send to someRandomAddress1 some amount twice, and to someRandomAddress2 once same amount
 	for i, address := range []types.Address{someRandomAddress1, someRandomAddress2, someRandomAddress1} {
-		time.Sleep(time.Second * 10)
-
 		require.NoError(t, aaRelayer.AASendTx(
 			path.Join(cluster.Config.TmpDir, fmt.Sprintf("%s1", customSecretPrefix)),
 			address,
 			big.NewInt(amount),
 			big.NewInt(21000),
-			uint64(i),
+			uint64(2-i), // let the aa tx pool to sort nonces out
 		))
+
+		time.Sleep(10 * time.Second)
 	}
 
 	// check if balances of someRandomAddress1 and someRandomAddress2 are correct
