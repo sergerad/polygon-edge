@@ -141,6 +141,15 @@ func (f *fsm) BuildProposal(currentRound uint64) ([]byte, error) {
 		f.logger.Trace("[FSM Build Proposal]", "Validators Delta", validatorsDelta)
 	}
 
+	for _, v := range f.validators.Accounts() {
+		// bi := v.BlsKey.ToBigInt()
+		fmt.Printf("VALIDATOR CREATE %s\n", v.Address.String())
+		// f.logger.Error("VALIDATOR CREATE HASH", "addr", v.Address.String(), "power", hex.EncodeToString(v.VotingPower.Bytes()))
+		// for i := 0; i < len(bi); i++ {
+		// 	f.logger.Error(hex.EncodeToString(bi[i].Bytes()))
+		// }
+	}
+
 	currentValidatorsHash, err := f.validators.Accounts().Hash()
 	if err != nil {
 		return nil, err

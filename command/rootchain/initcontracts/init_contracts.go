@@ -1,10 +1,8 @@
 package initcontracts
 
 import (
-	"bytes"
 	"fmt"
 	"math/big"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -370,6 +368,17 @@ func initializeCheckpointManager(
 		return fmt.Errorf("failed to convert validators to map: %w", err)
 	}
 
+	for _, v := range manifest.GenesisValidators {
+		//blsKey, _ := v.UnmarshalBLSPublicKey()
+		//bi := blsKey.ToBigInt()
+
+		//fmt.Printf("VALIDATOR INIT %s %s\n", v.Address.String(), hex.EncodeToString(v.Balance.Bytes()))
+		fmt.Printf("VALIDATOR INIT %s\n", v.Address.String())
+		// for i := 0; i < len(bi); i++ {
+		// 	fmt.Printf("%s\n", hex.EncodeToString(bi[i].Bytes()))
+		// }
+	}
+
 	initialize := contractsapi.InitializeCheckpointManagerFunction{
 		ChainID_:        big.NewInt(manifest.ChainID),
 		NewBls:          manifest.RootchainConfig.BLSAddress,
@@ -454,9 +463,6 @@ func sendTransaction(txRelayer txrelayer.TxRelayer, txn *ethgo.Transaction, cont
 func validatorSetToABISlice(validators []*polybft.Validator) ([]*contractsapi.Validator, error) {
 	genesisValidators := make([]*polybft.Validator, len(validators))
 	copy(genesisValidators, validators)
-	sort.Slice(genesisValidators, func(i, j int) bool {
-		return bytes.Compare(genesisValidators[i].Address.Bytes(), genesisValidators[j].Address.Bytes()) < 0
-	})
 
 	accSet := make(polybft.AccountSet, len(genesisValidators))
 
