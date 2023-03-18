@@ -8,7 +8,9 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -34,6 +36,20 @@ import (
 const (
 	manifestFileName = "manifest.json"
 )
+
+func init() {
+	wd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	parent := filepath.Dir(wd)
+	wd = filepath.Join(parent, "../artifacts/polygon-edge")
+	os.Setenv("EDGE_BINARY", wd)
+	os.Setenv("E2E_TESTS", "true")
+	os.Setenv("E2E_LOGS", "true")
+	os.Setenv("E2E_LOG_LEVEL", "debug")
+}
 
 // checkStateSyncResultLogs is helper function which parses given StateSyncResultEvent event's logs,
 // extracts status topic value and makes assertions against it.

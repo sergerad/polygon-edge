@@ -139,6 +139,11 @@ func (f *fsm) BuildProposal(currentRound uint64) ([]byte, error) {
 
 		extra.Validators = validatorsDelta
 		f.logger.Trace("[FSM Build Proposal]", "Validators Delta", validatorsDelta)
+
+		nextValidators, err = f.validators.Accounts().Copy().ApplyDelta(validatorsDelta)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, v := range f.validators.Accounts() {
@@ -301,6 +306,11 @@ func (f *fsm) Validate(proposal []byte) error {
 		}
 
 		if err := extra.ValidateDelta(currentValidators, nextValidators); err != nil {
+			return err
+		}
+
+		nextValidators, err = f.validators.Accounts().Copy().ApplyDelta(extra.Validators)
+		if err != nil {
 			return err
 		}
 
