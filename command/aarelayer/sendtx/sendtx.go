@@ -15,7 +15,10 @@ import (
 	"github.com/0xPolygon/polygon-edge/consensus/polybft/wallet"
 	"github.com/0xPolygon/polygon-edge/helper/common"
 	"github.com/spf13/cobra"
+	"github.com/umbracle/ethgo"
 )
+
+const numWaitReceiptRetries = 50
 
 var params aarelayerSendTxParams
 
@@ -51,53 +54,19 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	tx, err := params.createAATransaction(account.Ecdsa)
-	if err != nil {
-		return err
-	}
-
-	var (
-		responseObj map[string]string
-		buf         bytes.Buffer
-	)
-
-	if err := json.NewEncoder(&buf).Encode(tx); err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/sendTransaction", params.addr), &buf)
-	if err != nil {
-		return err
-	}
-
 	client := &http.Client{}
 
-	res, err := client.Do(req)
+	uuid, err := sendAATx(client, account.Ecdsa)
 	if err != nil {
 		return err
 	}
-
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("http response %d", res.StatusCode)
-	}
-
-	uuidBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(uuidBytes, &responseObj); err != nil {
-		return err
-	}
-
-	uuid := responseObj["uuid"]
 
 	cmd.Printf("Transaction has been successfully sent: %s\n", uuid)
 
 	if params.waitForReceipt {
 		cmd.Println("waiting for receipt...")
 
-		receipt, err := waitForRecipt(cmd, uuid)
+		receipt, err := waitForRecipt(cmd, client, uuid)
 		if err != nil {
 			return err
 		}
@@ -114,18 +83,46 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func waitForRecipt(cmd *cobra.Command, uuid string) (*service.AAReceipt, error) {
-	const numRetries = 50
+func sendAATx(client *http.Client, key ethgo.Key) (string, error) {
+	tx, err := params.createAATransaction(key)
+	if err != nil {
+		return "", err
+	}
 
-	endpoint := fmt.Sprintf("http://%s/v1/getTransactionReceipt/%s", params.addr, uuid)
+	var (
+		responseObj map[string]string
+		buf         bytes.Buffer
+	)
 
-	req, err := http.NewRequest("GET", endpoint, nil)
+	if err := json.NewEncoder(&buf).Encode(tx); err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s/v1/sendTransaction", params.addr),
+		&buf)
+	if err != nil {
+		return "", err
+	}
+
+	if err := executeRequest(client, req, &responseObj); err != nil {
+		return "", err
+	}
+
+	return responseObj["uuid"], nil
+}
+
+func waitForRecipt(cmd *cobra.Command, client *http.Client, uuid string) (*service.AAReceipt, error) {
+	req, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("http://%s/v1/getTransactionReceipt/%s", params.addr, uuid),
+		nil)
 	if err != nil {
 		return nil, err
 	}
 
 	responseObj := &service.AAReceipt{}
-	client := &http.Client{}
 	ctx, cancel := context.WithCancel(cmd.Context())
 	stopCh := common.GetTerminationSignalCh()
 	ticker := time.NewTicker(time.Second * 10)
@@ -142,26 +139,12 @@ func waitForRecipt(cmd *cobra.Command, uuid string) (*service.AAReceipt, error) 
 		}
 	}()
 
-	for i := 0; i < numRetries; i++ {
+	for i := 0; i < numWaitReceiptRetries; i++ {
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("program has been terminated while waiting for receipt: %s", uuid)
 		case <-ticker.C:
-			res, err := client.Do(req)
-			if err != nil {
-				return nil, err
-			}
-
-			if res.StatusCode != http.StatusOK {
-				return nil, fmt.Errorf("http response %d for uuid = %s", res.StatusCode, uuid)
-			}
-
-			uuidBytes, err := io.ReadAll(res.Body)
-			if err != nil {
-				return nil, err
-			}
-
-			if err := json.Unmarshal(uuidBytes, responseObj); err != nil {
+			if err := executeRequest(client, req, &responseObj); err != nil {
 				return nil, err
 			}
 
@@ -172,4 +155,26 @@ func waitForRecipt(cmd *cobra.Command, uuid string) (*service.AAReceipt, error) 
 	}
 
 	return nil, fmt.Errorf("timeout while waiting for receipt: %s", uuid)
+}
+
+func executeRequest(client *http.Client, request *http.Request, responseObject interface{}) error {
+	res, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("http request failed: response status = %d", res.StatusCode)
+	}
+
+	bytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(bytes, responseObject); err != nil {
+		return err
+	}
+
+	return nil
 }

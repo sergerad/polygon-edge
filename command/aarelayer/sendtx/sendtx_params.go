@@ -39,7 +39,7 @@ type aarelayerSendTxParams struct {
 	waitForReceipt bool
 	invokerAddr    string
 
-	payloads []*service.Payload
+	payloads []service.Payload
 }
 
 func (rp *aarelayerSendTxParams) validateFlags() error {
@@ -90,7 +90,7 @@ func (rp *aarelayerSendTxParams) validateFlags() error {
 
 		to := types.StringToAddress(parts[0])
 
-		rp.payloads = append(rp.payloads, &service.Payload{
+		rp.payloads = append(rp.payloads, service.Payload{
 			To:       &to,
 			Value:    value,
 			GasLimit: gasLimit,
@@ -110,17 +110,8 @@ func (rp *aarelayerSendTxParams) createAATransaction(key ethgo.Key) (*service.AA
 		Transaction: service.Transaction{
 			From:    types.Address(key.Address()),
 			Nonce:   rp.nonce,
-			Payload: make([]service.Payload, len(rp.payloads)),
+			Payload: rp.payloads,
 		},
-	}
-
-	for i, payload := range rp.payloads {
-		aaTx.Transaction.Payload[i] = service.Payload{
-			To:       payload.To,
-			Value:    payload.Value,
-			GasLimit: payload.GasLimit,
-			Input:    payload.Input,
-		}
 	}
 
 	invokerAddress := types.StringToAddress(rp.invokerAddr)

@@ -24,6 +24,8 @@ type TestAARelayer struct {
 
 	config *TestAARelayerConfig
 	node   *node
+
+	sendTxNodes []*node
 }
 
 func NewTestAARelayer(t *testing.T, config *TestAARelayerConfig) *TestAARelayer {
@@ -68,6 +70,13 @@ func (t *TestAARelayer) Stop() {
 		t.t.Fatal(err)
 	}
 
+	for _, n := range t.sendTxNodes {
+		if err := n.Stop(); err != nil {
+			t.t.Fatal(err)
+		}
+	}
+
+	t.sendTxNodes = nil
 	t.node = nil
 }
 
@@ -79,6 +88,8 @@ func (t *TestAARelayer) AASendTx(
 	value *big.Int,
 	gasLimit *big.Int,
 	nonce uint64,
+	waitForReceipt bool,
+	stdout io.Writer,
 ) error {
 	args := []string{
 		"aarelayer", "sendtx",
@@ -86,9 +97,19 @@ func (t *TestAARelayer) AASendTx(
 		"--addr", t.config.Addr,
 		"--tx", fmt.Sprintf("%s:%s:%s", address.String(), value.String(), gasLimit.String()),
 		"--nonce", fmt.Sprintf("%d", nonce),
-		"--wait-for-receipt=false",
 		"--invoker-addr", t.config.InvokerAddress.String(),
 	}
 
-	return runCommand(t.config.Binary, args, t.config.Stdout)
+	if !waitForReceipt {
+		args = append(args, "--wait-for-receipt=false")
+	}
+
+	node, err := newNode(t.config.Binary, args, stdout)
+	if err != nil {
+		return err
+	}
+
+	t.sendTxNodes = append(t.sendTxNodes, node)
+
+	return nil
 }

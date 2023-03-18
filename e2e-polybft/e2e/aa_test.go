@@ -85,6 +85,8 @@ func TestE2E_AccountAbstraction(t *testing.T) {
 			big.NewInt(amount),
 			big.NewInt(21000),
 			uint64(2-i), // let the aa tx pool to sort nonces out
+			false,
+			cluster.Config.GetStdout(fmt.Sprintf("aarelayersendtx%d", i)),
 		))
 
 		time.Sleep(10 * time.Second)
